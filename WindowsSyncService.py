@@ -7,7 +7,6 @@ import os
 import sys
 import time
 import subprocess
-import psutil
 from datetime import datetime
 from pathlib import Path
 import json
@@ -37,20 +36,15 @@ class ProcessWatchdog:
     def find_target_process(self):
         """查找目标进程"""
         try:
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                try:
-                    # 检查进程名
-                    if proc.info['name'] and self.target_process_name.lower() in proc.info['name'].lower():
-                        return proc
-                    
-                    # 检查命令行参数（对于Python脚本）
-                    if proc.info['cmdline']:
-                        cmdline = ' '.join(proc.info['cmdline'])
-                        if self.target_script_name in cmdline:
-                            return proc
-                            
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
+            # 使用 tasklist 命令查找进程
+            result = subprocess.run(
+                ['tasklist', '/FI', f'IMAGENAME eq {self.target_process_name}', '/FO', 'CSV'],
+                capture_output=True, text=True, shell=True
+            )
+            
+            if result.returncode == 0 and self.target_process_name in result.stdout:
+                # 找到进程，返回一个简单的进程对象
+                return {'found': True, 'name': self.target_process_name}
             
             return None
             
@@ -106,44 +100,39 @@ class ProcessWatchdog:
             self.logger.error(f"Error starting target process: {str(e)}")
             return False
     
-    def is_process_healthy(self, proc):
+    def is_process_healthy(self, proc_info):
         """检查进程是否健康"""
         try:
-            if not proc or not proc.is_running():
+            if not proc_info or not proc_info.get('found'):
                 return False
             
-            # 检查进程状态
-            status = proc.status()
-            if status in [psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD]:
-                return False
+            # 简单检查：如果进程还在运行，就认为是健康的
+            # 使用 tasklist 再次确认进程存在
+            result = subprocess.run(
+                ['tasklist', '/FI', f'IMAGENAME eq {self.target_process_name}', '/FO', 'CSV'],
+                capture_output=True, text=True, shell=True
+            )
             
-            # 检查CPU使用率（可选）
-            # cpu_percent = proc.cpu_percent()
-            # if cpu_percent > 90:  # 如果CPU使用率过高
-            #     self.logger.warning(f"Target process CPU usage high: {cpu_percent}%")
+            return result.returncode == 0 and self.target_process_name in result.stdout
             
-            return True
-            
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            return False
         except Exception as e:
             self.logger.error(f"Error checking process health: {str(e)}")
             return False
     
-    def terminate_process(self, proc):
+    def terminate_process(self, proc_info):
         """终止进程"""
         try:
-            if proc and proc.is_running():
-                proc.terminate()
-                # 等待进程终止
-                try:
-                    proc.wait(timeout=5)
-                except psutil.TimeoutExpired:
-                    # 如果进程不响应，强制杀死
-                    proc.kill()
-                    proc.wait(timeout=5)
+            if proc_info and proc_info.get('found'):
+                # 使用 taskkill 命令终止进程
+                result = subprocess.run(
+                    ['taskkill', '/F', '/IM', self.target_process_name],
+                    capture_output=True, text=True, shell=True
+                )
                 
-                self.logger.info("Target process terminated")
+                if result.returncode == 0:
+                    self.logger.info("Target process terminated")
+                else:
+                    self.logger.warning(f"Failed to terminate process: {result.stderr}")
                 
         except Exception as e:
             self.logger.error(f"Error terminating process: {str(e)}")
@@ -198,83 +187,77 @@ class ProcessWatchdog:
             self.running = True
             self.logger.info("WindowsSyncService starting...")
             
-            # 首次启动目标进程
-            if not self.start_target_process():
-                self.logger.error("Failed to start target process initially")
-                return
-            
-            # 开始监控循环
+            # 启动监控循环
             self.monitor_loop()
             
         except Exception as e:
-            self.logger.error(f"Watchdog service error: {str(e)}")
+            self.logger.error(f"Error starting service: {str(e)}")
         finally:
             self.stop()
     
     def stop(self):
         """停止守护服务"""
-        self.running = False
-        
-        self.logger.info("WindowsSyncService stopping...")
-        if self.process and self.process.poll() is None:
-            try:
-                self.process.terminate()
-                self.process.wait(timeout=3)
-            except (psutil.TimeoutExpired, ProcessLookupError):
+        try:
+            self.running = False
+            self.logger.info("WindowsSyncService stopping...")
+            
+            # 终止目标进程
+            if self.process:
                 try:
+                    self.process.terminate()
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
                     self.process.kill()
-                except ProcessLookupError:
-                    pass # 进程已经不存在
-        
-        self.logger.info("WindowsSyncService stopped gracefully.")
+                except Exception:
+                    pass
+            
+            self.logger.info("WindowsSyncService stopped")
+            
+        except Exception as e:
+            self.logger.error(f"Error stopping service: {str(e)}")
 
 
 def main():
     """主函数"""
-    watchdog = None
     try:
-        watchdog = ProcessWatchdog()
-
-        # --- Windows 关机信号处理 ---
+        # 设置信号处理器
         if sys.platform == "win32":
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            
+            import signal
             def handler(event):
-                if event in (2, 6): # CTRL_SHUTDOWN_EVENT, CTRL_LOGOFF_EVENT
-                    watchdog.logger.warning(f"Shutdown signal received (event {event}). Stopping watchdog.")
-                    watchdog.stop()
-                    time.sleep(2) # 给点时间完成清理
-                return True
+                if event in [signal.SIGINT, signal.SIGTERM]:
+                    emergency_log("WindowsSyncService received termination signal")
+                    sys.exit(0)
             
-            kernel32.SetConsoleCtrlHandler(ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)(handler), 1)
-        # --- 信号处理结束 ---
+            # 注册信号处理器
+            signal.signal(signal.SIGINT, handler)
+            signal.signal(signal.SIGTERM, handler)
         
+        # 创建并启动守护进程
+        watchdog = ProcessWatchdog()
         watchdog.start()
         
-    except (FileNotFoundError, RuntimeError) as e:
-        # 配置文件加载等早期错误
-        emergency_log(f"Fatal startup error in Watchdog: {e}")
-        sys.exit(1)
+    except KeyboardInterrupt:
+        emergency_log("WindowsSyncService interrupted by user")
     except Exception as e:
-        # 其他意外错误
-        if watchdog and watchdog.logger:
-            watchdog.logger.error(f"Fatal error: {str(e)}")
-        else:
-            # 日志系统未初始化，写入紧急日志
-            emergency_log(f"Fatal error: {str(e)}")
+        emergency_log(f"WindowsSyncService fatal error: {str(e)}")
         sys.exit(1)
 
 
 def emergency_log(message):
-    """紧急日志，在日志系统初始化失败时使用"""
+    """紧急日志记录"""
     try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_message = f"[{timestamp}] {message}\n"
+        
+        # 写入日志文件
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
-        with open(log_dir / "watchdog_emergency.log", "a", encoding="utf-8") as f:
-            f.write(f"{datetime.now()}: {message}\n")
-    except:
-        pass
+        
+        with open(log_dir / "watchdog.log", "a", encoding="utf-8") as f:
+            f.write(log_message)
+            
+    except Exception:
+        pass  # 忽略日志记录错误
 
 
 if __name__ == "__main__":
