@@ -61,9 +61,14 @@ class ProcessWatchdog:
     def start_target_process(self):
         """启动目标进程"""
         try:
-            # 获取当前目录
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            
+            # 确定可执行文件/脚本所在的目录
+            if getattr(sys, 'frozen', False):
+                # 如果是 PyInstaller 打包的 exe
+                current_dir = os.path.dirname(sys.executable)
+            else:
+                # 如果是作为 .py 脚本运行
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+
             # 尝试启动编译后的exe文件
             exe_path = os.path.join(current_dir, self.target_process_name)
             if os.path.exists(exe_path):
