@@ -24,7 +24,13 @@ from requests.auth import HTTPBasicAuth
 import schedule
 
 # 本地模块
-from utils import load_config, Logger, ensure_single_instance
+from utils import (
+    load_config,
+    Logger,
+    ensure_single_instance,
+    WebDAVUploader,
+    CacheManager
+)
 
 
 class ScreenCaptureService:
