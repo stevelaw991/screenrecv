@@ -85,7 +85,7 @@ class ScreenCaptureService:
     def generate_filename(self):
         """生成带计算机名和时间戳的文件名"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"{self.computer_name}_{timestamp}.webp"
+        return f"{self.computer_name}_{timestamp}.jpg"
 
     def capture_screen(self):
         """截取屏幕"""
@@ -114,7 +114,7 @@ class ScreenCaptureService:
             return None
     
     def compress_image(self, img):
-        """压缩图像为WebP格式"""
+        """压缩图像为JPEG格式"""
         try:
             # 生成临时文件名（使用计算机名和时间戳）
             filename = self.generate_filename()
@@ -124,10 +124,10 @@ class ScreenCaptureService:
             )
             temp_file.close()
             
-            # 保存为WebP格式
+            # 保存为JPEG格式
             img.save(
                 temp_file.name,
-                format='WEBP',
+                format='JPEG',
                 quality=self.config['screenshot']['quality'],
                 optimize=True
             )

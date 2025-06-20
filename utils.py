@@ -123,7 +123,7 @@ class CacheManager:
     def get_cached_files(self):
         """获取缓存的文件列表"""
         try:
-            return list(self.cache_dir.glob("*.webp"))
+            return list(self.cache_dir.glob("*.jpg"))
         except Exception as e:
             self.logger.error(f"Error getting cached files: {str(e)}")
             return []
@@ -141,7 +141,7 @@ class CacheManager:
         try:
             cutoff_date = datetime.now() - timedelta(days=self.config['system']['cache_cleanup_days'])
             
-            for file_path in self.cache_dir.glob("*.webp"):
+            for file_path in self.cache_dir.glob("*.jpg"):
                 if datetime.fromtimestamp(file_path.stat().st_mtime) < cutoff_date:
                     self.remove_cached_file(file_path)
                     
@@ -149,44 +149,36 @@ class CacheManager:
             self.logger.error(f"Error during cache cleanup: {str(e)}")
 
 
-def load_config():
-    """加载配置文件"""
+def decrypt_data(encrypted_data_b64):
+    """使用 Windows DPAPI 解密数据"""
+    import base64
     try:
-        with open('config.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+        import win32crypt
+    except ImportError:
+        # 在打包后的环境中，这个错误不应该发生
+        # 但为了本地运行的健壮性，保留此检查
+        raise RuntimeError("解密需要 'pywin32' 模块。请运行 'pip install pywin32'。")
+        
+    # Base64 解码
+    encrypted_bytes = base64.b64decode(encrypted_data_b64.encode('utf-8'))
+    # DPAPI 解密
+    decrypted_bytes, _ = win32crypt.CryptUnprotectData(encrypted_bytes, None, None, None, 0)
+    return json.loads(decrypted_bytes.decode('utf-8'))
+
+
+def load_config():
+    """加载并解密配置文件"""
+    try:
+        with open('config.dat', 'r', encoding='utf-8') as f:
+            encrypted_data = f.read()
+        return decrypt_data(encrypted_data)
+    except FileNotFoundError:
+        # 如果配置文件不存在，这是一个严重错误，因为无法引导用户
+        # 此时应直接退出或抛出异常，让守护进程知道启动失败
+        raise FileNotFoundError("错误：找不到配置文件 'config.dat'。请先运行配置向导。")
     except Exception as e:
-        # 如果配置文件不存在或损坏，使用默认配置
-        default_config = {
-            "webdav": {
-                "url": "https://dav.jianguoyun.com/dav/",
-                "username": "your_email@example.com",
-                "password": "your_password",
-                "remote_path": "/ScreenCaptures/"
-            },
-            "screenshot": {
-                "interval_seconds": 5,
-                "format": "webp",
-                "quality": 10,
-                "max_width": 1920,
-                "max_height": 1080
-            },
-            "upload": {
-                "retry_interval_seconds": 300,
-                "max_retries": 5,
-                "timeout_seconds": 30
-            },
-            "system": {
-                "log_level": "INFO",
-                "max_log_size_mb": 10,
-                "max_log_files": 5,
-                "cache_cleanup_days": 7
-            },
-            "watchdog": {
-                "check_interval_seconds": 10,
-                "restart_delay_seconds": 5
-            }
-        }
-        return default_config
+        # 其他解密或解析错误
+        raise RuntimeError(f"加载或解密配置文件失败: {e}")
 
 
 def get_install_path():
