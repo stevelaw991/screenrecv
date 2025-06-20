@@ -231,24 +231,41 @@ class ProcessWatchdog:
 
 def main():
     """主函数"""
+    watchdog = None
     try:
         # 隐藏控制台窗口（Windows）
-        if sys.platform == "win32":
-            import ctypes
-            ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+        # if sys.platform == "win32":
+        #     import ctypes
+        #     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
         
         # 创建并启动守护服务
         watchdog = ProcessWatchdog()
         watchdog.start()
         
-    except Exception as e:
-        # 如果日志系统未初始化，写入临时日志
-        try:
-            with open("logs/watchdog_emergency.log", "a", encoding="utf-8") as f:
-                f.write(f"{datetime.now()}: Fatal error: {str(e)}\n")
-        except:
-            pass
+    except (FileNotFoundError, RuntimeError) as e:
+        # 配置文件加载等早期错误
+        print(f"FATAL ERROR in Watchdog: {e}")
+        time.sleep(10)
         sys.exit(1)
+    except Exception as e:
+        # 其他意外错误
+        if watchdog and watchdog.logger:
+            watchdog.logger.error(f"Fatal error: {str(e)}")
+        else:
+            # 日志系统未初始化，写入紧急日志
+            emergency_log(f"Fatal error: {str(e)}")
+        sys.exit(1)
+
+
+def emergency_log(message):
+    """紧急日志，在日志系统初始化失败时使用"""
+    try:
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        with open(log_dir / "watchdog_emergency.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now()}: {message}\n")
+    except:
+        pass
 
 
 if __name__ == "__main__":

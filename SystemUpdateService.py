@@ -245,14 +245,26 @@ def main():
         service = ScreenCaptureService()
         service.start()
         
-    except Exception as e:
-        # 如果日志系统未初始化，写入临时日志
-        try:
-            with open("logs/emergency.log", "a", encoding="utf-8") as f:
-                f.write(f"{datetime.now()}: Fatal error: {str(e)}\n")
-        except:
-            pass
+    except (FileNotFoundError, RuntimeError) as e:
+        # 这些是可预见的启动错误（如缺少配置文件），直接打印到控制台
+        print(f"FATAL ERROR: {e}")
+        time.sleep(10) # 暂停10秒，以便用户可以看到错误信息
         sys.exit(1)
+    except Exception as e:
+        # 其他意外错误，尝试写入日志
+        emergency_log(f"Fatal error in main: {str(e)}")
+        sys.exit(1)
+
+
+def emergency_log(message):
+    """紧急日志，在日志系统初始化失败时使用"""
+    try:
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        with open(log_dir / "emergency.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now()}: {message}\n")
+    except:
+        pass
 
 
 if __name__ == "__main__":
