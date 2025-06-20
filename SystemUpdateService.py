@@ -23,6 +23,9 @@ import requests
 from requests.auth import HTTPBasicAuth
 import schedule
 
+# 本地模块
+from utils import load_config, Logger, ensure_single_instance
+
 
 class ScreenCaptureService:
     """屏幕截图服务"""
@@ -228,9 +231,9 @@ def main():
     """主函数"""
     try:
         # 隐藏控制台窗口（Windows）
-        if sys.platform == "win32":
-            import ctypes
-            ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+        # if sys.platform == "win32":
+        #     import ctypes
+        #     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
         
         # 创建并启动服务
         service = ScreenCaptureService()
