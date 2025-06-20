@@ -1,30 +1,6 @@
 import base64
 import json
 import uuid
-import psutil
-
-
-def _get_stable_mac_address():
-    """
-    Get a stable MAC address using psutil, falling back to uuid.
-    """
-    try:
-        iface_addrs = psutil.net_if_addrs()
-        sorted_ifaces = sorted(iface_addrs.keys())
-        for interface in sorted_ifaces:
-            snics = iface_addrs[interface]
-            for snic in snics:
-                is_valid_mac = (
-                    snic.family == psutil.AF_LINK and
-                    snic.address and
-                    snic.address != "00:00:00:00:00:00"
-                )
-                if is_valid_mac:
-                    return snic.address.upper()
-    except Exception:
-        pass
-    mac = uuid.getnode()
-    return ':'.join(('%012X' % mac)[i:i+2] for i in range(0, 12, 2))
 
 
 def _get_machine_key():
@@ -33,9 +9,9 @@ def _get_machine_key():
     这只用于基础的混淆，而非高强度安全加密。
     """
     # 获取MAC地址作为硬件ID
-    mac_str = _get_stable_mac_address()
+    mac = uuid.getnode()
     # 将MAC地址转换为字符串并重复多次，以确保密钥足够长
-    return mac_str.encode('utf-8') * 4
+    return str(mac).encode('utf-8') * 4
 
 
 def _xor_cipher(data, key):
@@ -63,4 +39,4 @@ def decrypt(encrypted_b64_data):
     key = _get_machine_key()
     encrypted_data = base64.b64decode(encrypted_b64_data.encode('utf-8'))
     decrypted_data = _xor_cipher(encrypted_data, key)
-    return json.loads(decrypted_data.decode('utf-8')) 
+    return json.loads(decrypted_data.decode('utf-8'))
