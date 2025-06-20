@@ -163,7 +163,7 @@ def decrypt_data(encrypted_data_b64):
     encrypted_bytes = base64.b64decode(encrypted_data_b64.encode('utf-8'))
     # DPAPI 解密
     decrypted_bytes, _ = win32crypt.CryptUnprotectData(encrypted_bytes, None, None, None, 0)
-    return json.loads(decrypted_bytes.decode('utf-8'))
+    return json.loads(decrypted_bytes)
 
 
 def load_config():
