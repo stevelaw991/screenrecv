@@ -4,14 +4,8 @@ import os
 import base64
 from getpass import getpass
 
-# 尝试导入 win32crypt，如果失败则提供指导
-try:
-    import win32crypt
-    import win32api
-except ImportError:
-    print("错误：缺少 'pywin32' 模块。")
-    print("请运行 'pip install pywin32' 来安装它。")
-    sys.exit(1)
+# 导入新的加密模块
+from crypter import encrypt
 
 def get_user_input(prompt, default=None):
     """获取用户输入，支持默认值"""
@@ -22,15 +16,6 @@ def get_user_input(prompt, default=None):
     
     value = input(display_prompt)
     return value if value else default
-
-def encrypt_data(data):
-    """使用 Windows DPAPI 加密数据"""
-    data_bytes = json.dumps(data, indent=4).encode('utf-8')
-    # DPAPI 加密，使用机器级加密以避免用户上下文问题
-    # CRYPTPROTECT_LOCAL_MACHINE = 0x4
-    encrypted_bytes = win32crypt.CryptProtectData(data_bytes, None, None, None, None, 0x4)
-    # Base64 编码以方便存储
-    return base64.b64encode(encrypted_bytes).decode('utf-8')
 
 def main():
     """主函数，引导用户完成配置"""
@@ -78,8 +63,8 @@ def main():
     }
 
     try:
-        # 加密数据
-        encrypted_config = encrypt_data(config)
+        # 使用新的加密函数
+        encrypted_config = encrypt(config)
         
         print(f"DEBUG: Encrypted data fingerprint: {encrypted_config[:16]}")
 

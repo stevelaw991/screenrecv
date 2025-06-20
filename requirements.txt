@@ -18,6 +18,3 @@ schedule==1.2.0
 
 # PyInstaller for building executables
 pyinstaller==6.8.0
-
-# Windows-specific encryption functionality
-pywin32>=306

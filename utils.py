@@ -14,6 +14,9 @@ import requests
 from requests.auth import HTTPBasicAuth
 import threading
 
+# 导入新的解密模块
+from crypter import decrypt
+
 
 class Logger:
     """日志管理器"""
@@ -149,33 +152,12 @@ class CacheManager:
             self.logger.error(f"Error during cache cleanup: {str(e)}")
 
 
-def decrypt_data(encrypted_data_b64):
-    """使用 Windows DPAPI 解密数据"""
-    import base64
-    try:
-        import win32crypt
-    except ImportError:
-        # 在打包后的环境中，这个错误不应该发生
-        # 但为了本地运行的健壮性，保留此检查
-        raise RuntimeError("解密需要 'pywin32' 模块。请运行 'pip install pywin32'。")
-        
-    # Base64 解码
-    encrypted_bytes = base64.b64decode(encrypted_data_b64.encode('utf-8'))
-    # DPAPI 解密
-    decrypted_bytes, _ = win32crypt.CryptUnprotectData(encrypted_bytes, None, None, None, 0)
-    
-    if not decrypted_bytes:
-        raise ValueError("DPAPI 解密后数据为空。请确保在同一用户账户下（且权限相同）进行加密和解密。")
-
-    return json.loads(decrypted_bytes)
-
-
 def load_config():
     """加载并解密配置文件"""
     try:
         with open('config.dat', 'r', encoding='utf-8') as f:
             encrypted_data = f.read()
-        return decrypt_data(encrypted_data)
+        return decrypt(encrypted_data)
     except FileNotFoundError:
         # 如果配置文件不存在，这是一个严重错误，因为无法引导用户
         # 此时应直接退出或抛出异常，让守护进程知道启动失败
