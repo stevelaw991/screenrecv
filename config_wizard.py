@@ -26,8 +26,9 @@ def get_user_input(prompt, default=None):
 def encrypt_data(data):
     """使用 Windows DPAPI 加密数据"""
     data_bytes = json.dumps(data, indent=4).encode('utf-8')
-    # DPAPI 加密
-    encrypted_bytes = win32crypt.CryptProtectData(data_bytes, None, None, None, None, 0)
+    # DPAPI 加密，使用机器级加密以避免用户上下文问题
+    # CRYPTPROTECT_LOCAL_MACHINE = 0x4
+    encrypted_bytes = win32crypt.CryptProtectData(data_bytes, None, None, None, None, 0x4)
     # Base64 编码以方便存储
     return base64.b64encode(encrypted_bytes).decode('utf-8')
 
