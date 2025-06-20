@@ -1,0 +1,32 @@
+{
+    "webdav": {
+        "url": "https://dav.jianguoyun.com/dav/",
+        "username": "your_email@example.com",
+        "password": "your_password",
+        "remote_path": "/ScreenCaptures/"
+    },
+    "screenshot": {
+        "interval_seconds": 5,
+        "format": "webp",
+        "quality": 10,
+        "max_width": 1920,
+        "max_height": 1080,
+        "filename_format": "{computer}_{timestamp}.webp",
+        "include_computer_name": true
+    },
+    "upload": {
+        "retry_interval_seconds": 300,
+        "max_retries": 5,
+        "timeout_seconds": 30
+    },
+    "system": {
+        "log_level": "INFO",
+        "max_log_size_mb": 10,
+        "max_log_files": 5,
+        "cache_cleanup_days": 7
+    },
+    "watchdog": {
+        "check_interval_seconds": 10,
+        "restart_delay_seconds": 5
+    }
+}

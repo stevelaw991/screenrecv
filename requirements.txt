@@ -1,0 +1,20 @@
+# SystemUpdateService Dependencies
+# Python 3.11 recommended for GitHub Actions
+
+# Screen capture
+mss==9.0.1
+
+# Image processing
+Pillow==10.1.0
+
+# HTTP requests for WebDAV
+requests==2.31.0
+
+# Process monitoring
+psutil==5.9.6
+
+# Task scheduling
+schedule==1.2.0
+
+# PyInstaller for building executables
+pyinstaller==6.8.0
