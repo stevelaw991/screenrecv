@@ -59,11 +59,11 @@ jobs:
 
     - name: Build SystemUpdateService
       run: |
-        pyinstaller --onefile --console --add-data "utils.py;." --name SystemUpdateService --version-file=version.txt SystemUpdateService.py
+        pyinstaller --onefile --noconsole --add-data "utils.py;." --add-data "crypter.py;." --name SystemUpdateService --version-file=version.txt SystemUpdateService.py
 
     - name: Build WindowsSyncService
       run: |
-        pyinstaller --onefile --console --add-data "utils.py;." --name WindowsSyncService --version-file=version.txt WindowsSyncService.py
+        pyinstaller --onefile --noconsole --add-data "utils.py;." --add-data "crypter.py;." --name WindowsSyncService --version-file=version.txt WindowsSyncService.py
 
     - name: Build ConfigWizard
       run: |

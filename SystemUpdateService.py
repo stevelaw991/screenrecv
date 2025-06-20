@@ -236,22 +236,16 @@ class ScreenCaptureService:
 def main():
     """主函数"""
     try:
-        # 隐藏控制台窗口（Windows）
-        # if sys.platform == "win32":
-        #     import ctypes
-        #     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
-        
         # 创建并启动服务
         service = ScreenCaptureService()
         service.start()
         
     except (FileNotFoundError, RuntimeError) as e:
-        # 这些是可预见的启动错误（如缺少配置文件），直接打印到控制台
-        print(f"FATAL ERROR: {e}")
-        time.sleep(10) # 暂停10秒，以便用户可以看到错误信息
+        # 可预见的启动错误，写入紧急日志
+        emergency_log(f"Fatal startup error: {e}")
         sys.exit(1)
     except Exception as e:
-        # 其他意外错误，尝试写入日志
+        # 其他意外错误
         emergency_log(f"Fatal error in main: {str(e)}")
         sys.exit(1)
 

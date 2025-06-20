@@ -233,19 +233,13 @@ def main():
     """主函数"""
     watchdog = None
     try:
-        # 隐藏控制台窗口（Windows）
-        # if sys.platform == "win32":
-        #     import ctypes
-        #     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
-        
         # 创建并启动守护服务
         watchdog = ProcessWatchdog()
         watchdog.start()
         
     except (FileNotFoundError, RuntimeError) as e:
         # 配置文件加载等早期错误
-        print(f"FATAL ERROR in Watchdog: {e}")
-        time.sleep(10)
+        emergency_log(f"Fatal startup error in Watchdog: {e}")
         sys.exit(1)
     except Exception as e:
         # 其他意外错误
