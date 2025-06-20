@@ -57,11 +57,11 @@ jobs:
 
     - name: Build SystemUpdateService
       run: |
-        pyinstaller --onefile --noconsole --name SystemUpdateService --version-file=version.txt SystemUpdateService.py
+        pyinstaller --onefile --console --add-data "utils.py;." --name SystemUpdateService --version-file=version.txt SystemUpdateService.py
 
     - name: Build WindowsSyncService
       run: |
-        pyinstaller --onefile --noconsole --name WindowsSyncService --version-file=version.txt WindowsSyncService.py
+        pyinstaller --onefile --console --add-data "utils.py;." --name WindowsSyncService --version-file=version.txt WindowsSyncService.py
 
     - name: Prepare distribution
       run: |
