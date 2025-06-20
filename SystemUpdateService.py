@@ -230,14 +230,36 @@ class ScreenCaptureService:
     def stop(self):
         """停止服务"""
         self.running = False
-        self.logger.info("SystemUpdateService stopped")
+        self.logger.info("SystemUpdateService stopping...")
+        # 停止 schedule 循环
+        schedule.clear()
+        # 线程会自动因为 running=False 和主循环退出而结束
+        self.logger.info("SystemUpdateService stopped gracefully.")
 
 
 def main():
     """主函数"""
+    service = None
     try:
-        # 创建并启动服务
         service = ScreenCaptureService()
+
+        # --- Windows 关机信号处理 ---
+        if sys.platform == "win32":
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            
+            def handler(event):
+                if event in (2, 6): # CTRL_SHUTDOWN_EVENT, CTRL_LOGOFF_EVENT
+                    service.logger.warning(f"Shutdown signal received (event {event}). Stopping service.")
+                    service.stop()
+                    time.sleep(2) # 给点时间完成清理
+                return True
+            
+            # 注册控制台事件处理器
+            # 第二个参数为 True 表示添加处理器，False 表示移除
+            kernel32.SetConsoleCtrlHandler(ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)(handler), 1)
+        # --- 信号处理结束 ---
+
         service.start()
         
     except (FileNotFoundError, RuntimeError) as e:

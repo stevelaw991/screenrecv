@@ -215,26 +215,41 @@ class ProcessWatchdog:
         """停止守护服务"""
         self.running = False
         
-        # 终止目标进程
-        if self.process:
+        self.logger.info("WindowsSyncService stopping...")
+        if self.process and self.process.poll() is None:
             try:
                 self.process.terminate()
-                self.process.wait(timeout=5)
-            except:
+                self.process.wait(timeout=3)
+            except (psutil.TimeoutExpired, ProcessLookupError):
                 try:
                     self.process.kill()
-                except:
-                    pass
+                except ProcessLookupError:
+                    pass # 进程已经不存在
         
-        self.logger.info("WindowsSyncService stopped")
+        self.logger.info("WindowsSyncService stopped gracefully.")
 
 
 def main():
     """主函数"""
     watchdog = None
     try:
-        # 创建并启动守护服务
         watchdog = ProcessWatchdog()
+
+        # --- Windows 关机信号处理 ---
+        if sys.platform == "win32":
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            
+            def handler(event):
+                if event in (2, 6): # CTRL_SHUTDOWN_EVENT, CTRL_LOGOFF_EVENT
+                    watchdog.logger.warning(f"Shutdown signal received (event {event}). Stopping watchdog.")
+                    watchdog.stop()
+                    time.sleep(2) # 给点时间完成清理
+                return True
+            
+            kernel32.SetConsoleCtrlHandler(ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)(handler), 1)
+        # --- 信号处理结束 ---
+        
         watchdog.start()
         
     except (FileNotFoundError, RuntimeError) as e:
