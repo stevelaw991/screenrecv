@@ -80,6 +80,8 @@ def main():
         # 加密数据
         encrypted_config = encrypt_data(config)
         
+        print(f"DEBUG: Encrypted data fingerprint: {encrypted_config[:16]}")
+
         # 保存到文件
         with open('config.dat', 'w', encoding='utf-8') as f:
             f.write(encrypted_config)

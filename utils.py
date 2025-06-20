@@ -163,6 +163,10 @@ def decrypt_data(encrypted_data_b64):
     encrypted_bytes = base64.b64decode(encrypted_data_b64.encode('utf-8'))
     # DPAPI 解密
     decrypted_bytes, _ = win32crypt.CryptUnprotectData(encrypted_bytes, None, None, None, 0)
+    
+    if not decrypted_bytes:
+        raise ValueError("DPAPI 解密后数据为空。请确保在同一用户账户下（且权限相同）进行加密和解密。")
+
     return json.loads(decrypted_bytes)
 
 
